@@ -1,0 +1,857 @@
+<!-- <!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Price Quote Calculator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f9f9f9;
+        }
+
+        .container {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            max-width: 900px;
+            margin: auto;
+        }
+
+        .form-container, .summary-box {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 2px 2px 10px #aaa;
+            width: 55%;
+        }
+
+        .summary-box {
+            background: #0096ff;
+            color: white;
+            text-align: center;
+            width: 35%;
+        }
+
+        h2 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+
+        input, select {
+            width: 96%;
+            padding: 10px;
+            margin-top: 5px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+
+        .progress-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .progress-container span {
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .quote-button {
+            background: black;
+            color: white;
+            padding: 10px;
+            border: none;
+            width: 100%;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 15px;
+        }
+
+        .quote-button:hover {
+            background: #333;
+        }
+
+        .d-flex {
+            justify-content: space-between;
+            display: flex;
+        }
+
+        .monthdDisplay {
+            width: 30px;
+            height: 30px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border: 1px solid gray;
+            border-radius: 4px;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .form-container, .summary-box {
+                width: 100%;
+                max-width: 400px;
+            }
+
+            input, select {
+                width: 95%;
+            }
+
+            .progress-container {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="form-container">
+            <h2>Price Quote Calculator</h2>
+
+            <div class="d-flex">
+                <label>Number of months</label>
+                <span id="monthsDisplay" class="monthdDisplay">11</span>
+            </div>
+
+            <div class="progress-container">
+                <input type="range" id="months" min="1" max="24" value="11"
+                    oninput="updateMonths(); calculateStampDuty()">
+            </div>
+
+            <label>Monthly rent</label>
+            <input type="number" id="rent" placeholder="₹10,000" oninput="calculateStampDuty()">
+
+            <label>Refundable Deposit</label>
+            <input type="number" id="deposit" placeholder="₹50,000" oninput="calculateStampDuty()">
+
+            <label>Area type</label>
+            <select id="area" onchange="calculateStampDuty()">
+                <option value="rural">Rural</option>
+                <option value="urban">Urban</option>
+            </select>
+            <label>Variable Rent</label>
+            <select id="VariableRent" onchange="toggleVariableRent(); calculateStampDuty()">
+                <option value="No">No</option>
+                <option value="Yes">Yes</option>
+            </select>
+
+            <div id="variableRentContainer" style="display: none;">
+                <div id="splitBlocks"></div>
+            </div>
+        </div>
+
+        <div class="summary-box">
+            <h3>Stamp duty estimate</h3>
+            <h2>₹<span id="result">400</span></h2>
+            <p>Your estimated total.</p>
+            <h4>Ready to Get Started?</h4>
+            <p>Get your project moving today with our competitive pricing. Reach out for a detailed consultation.</p>
+            <button class="quote-button">Request a Quote</button>
+        </div>
+    </div>
+
+    <script>
+        let splitCount = 0;
+
+        function updateMonths() {
+            document.getElementById('monthsDisplay').innerText = document.getElementById('months').value;
+        }
+
+        function toggleVariableRent() {
+            const variableRent = document.getElementById('VariableRent').value;
+            const container = document.getElementById('variableRentContainer');
+            if (variableRent === 'Yes') {
+                container.style.display = 'block';
+                if (splitCount === 0) {
+                    addSplitBlock();
+                }
+            } else {
+                container.style.display = 'none';
+            }
+        }
+
+        function addSplitBlock() {
+            splitCount++;
+            const splitBlocks = document.getElementById('splitBlocks');
+            const newBlock = document.createElement('div');
+            newBlock.id = `split-${splitCount}`;
+            newBlock.innerHTML = `
+                <label>Variable Rent - First Split ${splitCount}</label>
+                <input type="number" id="split-months-${splitCount}" placeholder="No. of months" oninput="calculateStampDuty()">
+                <input type="number" id="split-rent-${splitCount}" placeholder="Rent" oninput="calculateStampDuty()">
+                <button onclick="removeSplitBlock(${splitCount})">Remove</button>
+                <button onclick="addSplitBlock()">Add More</button>
+            `;
+            splitBlocks.appendChild(newBlock);
+        }
+
+        function removeSplitBlock(id) {
+            const block = document.getElementById(`split-${id}`);
+            if (block) {
+                block.remove();
+                calculateStampDuty();
+            }
+        }
+
+        function calculateStampDuty() {
+            let deposit = parseFloat(document.getElementById('deposit').value) || 0;
+            let rent = parseFloat(document.getElementById('rent').value) || 0;
+            let months = parseInt(document.getElementById('months').value);
+            let area = document.getElementById('area').value;
+            let variableRent = document.getElementById('VariableRent').value;
+
+            // Base calculation
+            let depositPerMonth = deposit / months;
+            let totalRent = rent * months;
+            let stampDuty = (0.25 / 100) * (depositPerMonth + totalRent);
+
+            // Variable rent calculation
+            if (variableRent === 'Yes') {
+                let variableStampDuty = 0;
+                for (let i = 1; i <= splitCount; i++) {
+                    const splitMonths = parseFloat(document.getElementById(`split-months-${i}`)?.value) || 0;
+                    const splitRent = parseFloat(document.getElementById(`split-rent-${i}`)?.value) || 0;
+                    if (splitMonths > 0 && splitRent > 0) {
+                        const splitDepositPerMonth = deposit / splitMonths;
+                        const splitTotalRent = splitRent * splitMonths;
+                        variableStampDuty += (0.25 / 100) * (splitDepositPerMonth + splitTotalRent);
+                    }
+                }
+                stampDuty += variableStampDuty;
+            }
+
+            let areaCharge = (area === 'rural') ? 300 : 500;
+            let finalAmount = stampDuty + areaCharge;
+
+            document.getElementById('result').innerText = finalAmount.toFixed(2);
+        }
+    </script>
+</body>
+
+</html>
+
+ -->
+<!-- <!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Price Quote Calculator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f9f9f9;
+        }
+
+        .container {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            max-width: 900px;
+            margin: auto;
+        }
+
+        .form-container, .summary-box {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 2px 2px 10px #aaa;
+            width: 55%;
+        }
+
+        .summary-box {
+            background: #0096ff;
+            color: white;
+            text-align: center;
+            width: 35%;
+        }
+
+        h2 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+
+        input, select {
+            width: 96%;
+            padding: 10px;
+            margin-top: 5px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+
+        .progress-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .progress-container span {
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .quote-button {
+            background: black;
+            color: white;
+            padding: 10px;
+            border: none;
+            width: 100%;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 15px;
+        }
+
+        .quote-button:hover {
+            background: #333;
+        }
+
+        .d-flex {
+            justify-content: space-between;
+            display: flex;
+        }
+
+        .monthdDisplay {
+            width: 30px;
+            height: 30px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border: 1px solid gray;
+            border-radius: 4px;
+        }
+        .flex{
+            display: flex;
+            margin-bottom:5px;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .form-container, .summary-box {
+                width: 100%;
+                max-width: 400px;
+            }
+
+            input, select {
+                width: 95%;
+            }
+
+            .progress-container {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="form-container">
+            <h2>Price Quote Calculator</h2>
+
+            <div class="d-flex">
+                <label>Number of months</label>
+                <span id="monthsDisplay" class="monthdDisplay">11</span>
+            </div>
+
+            <div class="progress-container">
+                <input type="range" id="months" min="1" max="24" value="11"
+                    oninput="updateMonths(); calculateStampDuty()">
+            </div>
+
+            <label>Monthly rent</label>
+            <input type="number" id="rent" placeholder="₹10,000" oninput="calculateStampDuty()">
+
+            <label>Refundable Deposit</label>
+            <input type="number" id="deposit" placeholder="₹50,000" oninput="calculateStampDuty()">
+
+            <label>Area type</label>
+            <select id="area" onchange="calculateStampDuty()">
+                <option value="rural">Rural</option>
+                <option value="urban">Urban</option>
+            </select>
+            <label>Variable Rent</label>
+            <select id="VariableRent" onchange="toggleVariableRent(); calculateStampDuty()">
+                <option value="No">No</option>
+                <option value="Yes">Yes</option>
+            </select>
+
+            <div id="variableRentContainer" style="display: none;">
+                <div id="splitBlocks"></div>
+            </div>
+        </div>
+
+        <div class="summary-box">
+            <h3>Stamp duty estimate</h3>
+            <h2>₹<span id="result">400</span></h2>
+            <p>Your estimated total.</p>
+            <h4>Ready to Get Started?</h4>
+            <p>Get your project moving today with our competitive pricing. Reach out for a detailed consultation.</p>
+            <button class="quote-button">Request a Quote</button>
+        </div>
+    </div>
+
+    <script>
+        let splitCount = 0;
+        const MAX_SPLITS = 5;
+
+        function updateMonths() {
+            document.getElementById('monthsDisplay').innerText = document.getElementById('months').value;
+        }
+
+        function toggleVariableRent() {
+            const variableRent = document.getElementById('VariableRent').value;
+            const container = document.getElementById('variableRentContainer');
+            if (variableRent === 'Yes') {
+                container.style.display = 'block';
+                if (splitCount === 0) {
+                    addSplitBlock();
+                }
+            } else {
+                container.style.display = 'none';
+            }
+        }
+
+        function addSplitBlock() {
+            if (splitCount >= MAX_SPLITS) return;
+
+            splitCount++;
+            const splitBlocks = document.getElementById('splitBlocks');
+            
+            // Create new split block
+            const newBlock = document.createElement('div');
+            newBlock.id = `split-${splitCount}`;
+            
+            // Base HTML for all blocks
+            let blockHTML = `
+                <label>Variable Rent - First Split ${splitCount}</label>
+                <div class="flex">
+                <input type="number" id="split-months-${splitCount}" placeholder="No. of months" oninput="calculateStampDuty()">
+                <input type="number" id="split-rent-${splitCount}" placeholder="Rent" oninput="calculateStampDuty()">
+                 </div>   
+                <button onclick="removeSplitBlock(${splitCount})">Remove</button>
+            `;
+
+            // Only add "Add More" button if less than max splits
+            if (splitCount < MAX_SPLITS) {
+                blockHTML += `<button id="addMoreBtn" onclick="addSplitBlock()">Add More</button>`;
+            }
+
+            newBlock.innerHTML = blockHTML;
+
+            // Remove existing "Add More" button if it exists
+            const existingAddMore = document.getElementById('addMoreBtn');
+            if (existingAddMore) {
+                existingAddMore.remove();
+            }
+
+            // Add the new block
+            splitBlocks.appendChild(newBlock);
+        }
+
+        function removeSplitBlock(id) {
+            const block = document.getElementById(`split-${id}`);
+            if (block) {
+                const wasLastBlock = (splitCount === id);
+                const hadAddMore = block.querySelector('#addMoreBtn') !== null;
+
+                block.remove();
+                splitCount--;
+
+                // If we removed a block and it was the last one or had the Add More button
+                if (splitCount > 0 && (wasLastBlock || hadAddMore) && splitCount < MAX_SPLITS) {
+                    // Add "Add More" button to the new last block
+                    const lastBlock = document.getElementById(`split-${splitCount}`);
+                    if (lastBlock) {
+                        const addMoreBtn = document.createElement('button');
+                        addMoreBtn.id = 'addMoreBtn';
+                        addMoreBtn.textContent = 'Add More';
+                        addMoreBtn.onclick = addSplitBlock;
+                        lastBlock.appendChild(addMoreBtn);
+                    }
+                }
+                calculateStampDuty();
+            }
+        }
+
+        function calculateStampDuty() {
+            let deposit = parseFloat(document.getElementById('deposit').value) || 0;
+            let rent = parseFloat(document.getElementById('rent').value) || 0;
+            let months = parseInt(document.getElementById('months').value);
+            let area = document.getElementById('area').value;
+            let variableRent = document.getElementById('VariableRent').value;
+
+            // Base calculation
+            let depositPerMonth = deposit / months;
+            let totalRent = rent * months;
+            let stampDuty = (0.25 / 100) * (depositPerMonth + totalRent);
+
+            // Variable rent calculation
+            if (variableRent === 'Yes') {
+                let variableStampDuty = 0;
+                for (let i = 1; i <= splitCount; i++) {
+                    const splitMonths = parseFloat(document.getElementById(`split-months-${i}`)?.value) || 0;
+                    const splitRent = parseFloat(document.getElementById(`split-rent-${i}`)?.value) || 0;
+                    if (splitMonths > 0 && splitRent > 0) {
+                        const splitDepositPerMonth = deposit / splitMonths;
+                        const splitTotalRent = splitRent * splitMonths;
+                        variableStampDuty += (0.25 / 100) * (splitDepositPerMonth + splitTotalRent);
+                    }
+                }
+                stampDuty += variableStampDuty;
+            }
+
+            let areaCharge = (area === 'rural') ? 300 : 500;
+            let finalAmount = stampDuty + areaCharge;
+
+            document.getElementById('result').innerText = finalAmount.toFixed(2);
+        }
+    </script>
+</body>
+
+</html> -->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Price Quote Calculator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f9f9f9;
+        }
+
+        .container {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            max-width: 900px;
+            margin: auto;
+        }
+
+        .form-container, .summary-box {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 2px 2px 10px #aaa;
+            width: 55%;
+        }
+
+        .summary-box {
+            background: #0096ff;
+            color: white;
+            text-align: center;
+            width: 35%;
+        }
+
+        h2 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+
+        input, select {
+            width: 96%;
+            padding: 10px;
+            margin-top: 5px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+
+        .progress-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .progress-container span {
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .quote-button {
+            background: black;
+            color: white;
+            padding: 10px;
+            border: none;
+            width: 100%;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 15px;
+        }
+
+        .quote-button:hover {
+            background: #333;
+        }
+
+        .d-flex {
+            justify-content: space-between;
+            display: flex;
+        }
+
+        .monthdDisplay {
+            width: 30px;
+            height: 30px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border: 1px solid gray;
+            border-radius: 4px;
+        }
+        .flex {
+            display: flex;
+            margin-bottom: 5px;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .form-container, .summary-box {
+                width: 100%;
+                max-width: 400px;
+            }
+
+            input, select {
+                width: 95%;
+            }
+
+            .progress-container {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="form-container">
+            <h2>Price Quote Calculator</h2>
+
+            <div class="d-flex">
+                <label>Number of months</label>
+                <span id="monthsDisplay" class="monthdDisplay">11</span>
+            </div>
+
+            <div class="progress-container">
+                <input type="range" id="months" min="1" max="24" value="11" oninput="updateMonths(); calculateStampDuty()">
+            </div>
+
+            <label>Monthly rent</label>
+            <input type="number" id="rent" placeholder="₹10,000" oninput="calculateStampDuty()">
+
+            <label>Refundable Deposit</label>
+            <input type="number" id="deposit" placeholder="₹50,000" oninput="calculateStampDuty()">
+
+            <label>Area type</label>
+            <select id="area" onchange="calculateStampDuty()">
+                <option value="rural">Rural</option>
+                <option value="urban">Urban</option>
+            </select>
+            <label>Variable Rent</label>
+            <select id="VariableRent" onchange="toggleVariableRent(); calculateStampDuty()">
+                <option value="No">No</option>
+                <option value="Yes">Yes</option>
+            </select>
+
+            <div id="variableRentContainer" style="display: none;">
+                <div id="splitBlocks"></div>
+            </div>
+        </div>
+
+        <div class="summary-box">
+            <h3>Stamp duty estimate</h3>
+            <h2>₹<span id="result">400</span></h2>
+            <div id="breakdown" style="text-align: left; margin-top: 10px;"></div>
+            <p>Your estimated total.</p>
+            <h4>Ready to Get Started?</h4>
+            <p>Get your project moving today with our competitive pricing. Reach out for a detailed consultation.</p>
+            <button class="quote-button">Request a Quote</button>
+        </div>
+    </div>
+
+    <script>
+        let splitCount = 0;
+        const MAX_SPLITS = 5;
+
+        function updateMonths() {
+            document.getElementById('monthsDisplay').innerText = document.getElementById('months').value;
+        }
+
+        function toggleVariableRent() {
+            const variableRent = document.getElementById('VariableRent').value;
+            const container = document.getElementById('variableRentContainer');
+            const rentInput = document.getElementById('rent');
+            const depositInput = document.getElementById('deposit');
+            const areaSelect = document.getElementById('area');
+            const variableRentSelect = document.getElementById('VariableRent');
+
+            if (variableRent === 'Yes') {
+                rentInput.disabled = true;
+                depositInput.disabled = true;
+                areaSelect.disabled = true;
+                variableRentSelect.disabled = false;
+                
+                rentInput.value = '';
+                depositInput.value = '';
+                areaSelect.value = 'rural';
+
+                container.style.display = 'block';
+                if (splitCount === 0) {
+                    addSplitBlock();
+                }
+            } else {
+                rentInput.disabled = false;
+                depositInput.disabled = false;
+                areaSelect.disabled = false;
+                
+                splitCount = 0;
+                document.getElementById('splitBlocks').innerHTML = '';
+                container.style.display = 'none';
+            }
+            calculateStampDuty();
+        }
+
+        function addSplitBlock() {
+            if (splitCount >= MAX_SPLITS) return;
+
+            splitCount++;
+            const splitBlocks = document.getElementById('splitBlocks');
+            
+            const newBlock = document.createElement('div');
+            newBlock.id = `split-${splitCount}`;
+            
+            let blockHTML = `
+                <label>Variable Rent - First Split ${splitCount}</label>
+                <div class="flex">
+                <input type="number" id="split-months-${splitCount}" placeholder="No. of months" oninput="calculateStampDuty()">
+                <input type="number" id="split-rent-${splitCount}" placeholder="Rent" oninput="calculateStampDuty()">
+                 </div>   
+                <button onclick="removeSplitBlock(${splitCount})">Remove</button>
+            `;
+
+            if (splitCount < MAX_SPLITS) {
+                blockHTML += `<button id="addMoreBtn" onclick="addSplitBlock()">Add More</button>`;
+            }
+
+            newBlock.innerHTML = blockHTML;
+
+            const existingAddMore = document.getElementById('addMoreBtn');
+            if (existingAddMore) {
+                existingAddMore.remove();
+            }
+
+            splitBlocks.appendChild(newBlock);
+        }
+
+        function removeSplitBlock(id) {
+            const block = document.getElementById(`split-${id}`);
+            if (block) {
+                const wasLastBlock = (splitCount === id);
+                const hadAddMore = block.querySelector('#addMoreBtn') !== null;
+
+                block.remove();
+                splitCount--;
+
+                if (splitCount > 0 && (wasLastBlock || hadAddMore) && splitCount < MAX_SPLITS) {
+                    const lastBlock = document.getElementById(`split-${splitCount}`);
+                    if (lastBlock) {
+                        const addMoreBtn = document.createElement('button');
+                        addMoreBtn.id = 'addMoreBtn';
+                        addMoreBtn.textContent = 'Add More';
+                        addMoreBtn.onclick = addSplitBlock;
+                        lastBlock.appendChild(addMoreBtn);
+                    }
+                }
+                calculateStampDuty();
+            }
+        }
+
+        function calculateStampDuty() {
+            const area = document.getElementById('area').value;
+            const variableRent = document.getElementById('VariableRent').value;
+            let stampDuty = 0;
+            let breakdownHTML = '';
+
+            if (variableRent === 'No') {
+                let deposit = parseFloat(document.getElementById('deposit').value) || 0;
+                let rent = parseFloat(document.getElementById('rent').value) || 0;
+                let months = parseInt(document.getElementById('months').value);
+                
+                let depositPerMonth = deposit / months;
+                let totalRent = rent * months;
+                stampDuty = (0.25 / 100) * (depositPerMonth + totalRent);
+                breakdownHTML = `<p>Base: ₹${stampDuty.toFixed(2)}</p>`;
+            } else {
+                let variableStampDuty = 0;
+                for (let i = 1; i <= splitCount; i++) {
+                    const splitMonths = parseFloat(document.getElementById(`split-months-${i}`)?.value) || 0;
+                    const splitRent = parseFloat(document.getElementById(`split-rent-${i}`)?.value) || 0;
+                    if (splitMonths > 0 && splitRent > 0) {
+                        const splitDepositPerMonth = 0;
+                        const splitTotalRent = splitRent * splitMonths;
+                        const splitDuty = (0.25 / 100) * (splitDepositPerMonth + splitTotalRent);
+                        variableStampDuty += splitDuty;
+                        breakdownHTML += `<p>Split ${i}: ₹${splitDuty.toFixed(2)}</p>`;
+                    }
+                }
+                stampDuty = variableStampDuty;
+            }
+
+            let areaCharge = (area === 'rural') ? 300 : 500;
+            let finalAmount = stampDuty + areaCharge;
+
+            breakdownHTML += `<p>Area Charge: ₹${areaCharge.toFixed(2)}</p>`;
+            document.getElementById('breakdown').innerHTML = breakdownHTML;
+            document.getElementById('result').innerText = finalAmount.toFixed(2);
+        }
+    </script>
+</body>
+
+</html>
